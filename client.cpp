@@ -1,46 +1,49 @@
-#include <unistd.h>
+#include <winsock2.h>
+#include <ws2tcpip.h>
 #include <iostream>
-#include <sys/socket.h>
-#include <netinet/in.h>
-#include <arpa/inet.h>
 #include <cstring> 
 
+#pragma comment(lib, "ws2_32.lib")
+
 #define PORT 8080
-#define SERVER_ADDRESS "127.0.0.1"
+#define SERVER_ADDRESS "192.168.14.45" // Replace with your server's IP address
+// you can find the address in linux terminal by writing this command "ifconfig" and "ipaddr show"
 
 using namespace std;
 
 void sendCommand(const string &command) {
-    int rnett = 0;
-    int yup = 0;
-    int client_socket;
+    WSADATA wsaData;
+    SOCKET client_socket = INVALID_SOCKET;
     struct sockaddr_in server_address;
 
-    // Create socket
-    client_socket = socket(AF_INET, SOCK_STREAM, 0);
-    if (client_socket < 0) {
-        cout << "Socket not opened" << endl;
-        exit(EXIT_FAILURE);
+    // Initialize Winsock
+    int result = WSAStartup(MAKEWORD(2, 2), &wsaData);
+    if (result != 0) {
+        cout << "WSAStartup failed: " << result << endl;
+        return;
     }
-    cout << "Socket opened" << endl;
+
+    // Create socket
+    client_socket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    if (client_socket == INVALID_SOCKET) {
+        cout << "Socket creation failed: " << WSAGetLastError() << endl;
+        WSACleanup();
+        return;
+    }
+    cout << "Socket created successfully" << endl;
 
     // Configure server address
     server_address.sin_family = AF_INET;
     server_address.sin_port = htons(PORT);
-
-    // Convert IPv4 and IPv6 addresses from text to binary form
-    yup = inet_pton(AF_INET, SERVER_ADDRESS, &server_address.sin_addr);
-    if (yup <= 0) {
-        cout << "Invalid address" << endl;
-        exit(EXIT_FAILURE);
-    }
-    cout << "Valid address" << endl;
+    inet_pton(AF_INET, SERVER_ADDRESS, &server_address.sin_addr);
 
     // Connect to server
-    rnett = connect(client_socket, (sockaddr *)&server_address, sizeof(server_address));
-    if (rnett < 0) {
-        perror("Connection failed");
-        exit(EXIT_FAILURE);
+    result = connect(client_socket, (sockaddr *)&server_address, sizeof(server_address));
+    if (result == SOCKET_ERROR) {
+        cout << "Connection failed: " << WSAGetLastError() << endl;
+        closesocket(client_socket);
+        WSACleanup();
+        return;
     }
     cout << "Connected to Server" << endl;
 
@@ -50,13 +53,14 @@ void sendCommand(const string &command) {
 
     // Read server response
     char buffer[2048] = {0};
-    int bytes_read = read(client_socket, buffer, 2048);
+    int bytes_read = recv(client_socket, buffer, 2048, 0);
     if (bytes_read > 0) {
         cout << "Server response: " << string(buffer, bytes_read) << endl;
     }
 
     // Close the socket
-    close(client_socket);
+    closesocket(client_socket);
+    WSACleanup();
     cout << "Connection closed" << endl;
 }
 

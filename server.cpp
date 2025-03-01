@@ -1,3 +1,4 @@
+//serve is for the linux
 #include <unistd.h>
 #include <iostream>
 #include <sys/socket.h>
